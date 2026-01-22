@@ -14,7 +14,7 @@ let package = Package(
     .target(
       name: "CodexBinary",
       resources: [
-        .copy("Resources"),
+        .process("Resources"),
       ]
     ),
     .testTarget(

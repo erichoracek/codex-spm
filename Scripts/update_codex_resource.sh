@@ -3,8 +3,26 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version_file="${repo_root}/CODEX_VERSION"
-resource_dir="${repo_root}/Sources/CodexBinary/Resources"
-tmp_tar="${resource_dir}/codex.tar.gz"
+codex_resource_dir="${repo_root}/Sources/CodexBinary/Resources"
+zsh_resource_dir="${repo_root}/Sources/CodexZshBinary/Resources"
+codex_tmp_tar="${codex_resource_dir}/codex.tar.gz"
+zsh_tmp_tar="${zsh_resource_dir}/codex-shell-tool-mcp.tgz"
+zsh_tmp_extract_dir="${zsh_resource_dir}/codex-shell-tool-mcp"
+zsh_archive_path="package/vendor/aarch64-apple-darwin/zsh/macos-15/zsh"
+
+download_file() {
+  local url="$1"
+  local output_path="$2"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL "${url}" -o "${output_path}"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "${output_path}" "${url}"
+  else
+    echo "Missing curl or wget to download ${url}" >&2
+    exit 1
+  fi
+}
 
 if [[ ! -f "${version_file}" ]]; then
   echo "Missing CODEX_VERSION at ${version_file}" >&2
@@ -17,23 +35,37 @@ if [[ -z "${version}" ]]; then
   exit 1
 fi
 
-url="https://github.com/openai/codex/releases/download/${version}/codex-aarch64-apple-darwin.tar.gz"
-
-mkdir -p "${resource_dir}"
-rm -rf "${resource_dir}/codex"
-rm -f "${resource_dir}/codex-aarch64-apple-darwin"
-
-if command -v curl >/dev/null 2>&1; then
-  curl -fL "${url}" -o "${tmp_tar}"
-elif command -v wget >/dev/null 2>&1; then
-  wget -O "${tmp_tar}" "${url}"
-else
-  echo "Missing curl or wget to download ${url}" >&2
+if [[ "${version}" != rust-v* ]]; then
+  echo "Expected CODEX_VERSION to start with rust-v, found ${version}" >&2
   exit 1
 fi
 
-tar -xzf "${tmp_tar}" -C "${resource_dir}"
-rm -f "${tmp_tar}"
+package_version="${version#rust-v}"
+codex_url="https://github.com/openai/codex/releases/download/${version}/codex-aarch64-apple-darwin.tar.gz"
+zsh_url="https://github.com/openai/codex/releases/download/${version}/codex-shell-tool-mcp-npm-${package_version}.tgz"
 
-echo "Downloaded ${url}"
-echo "Extracted to ${resource_dir}"
+mkdir -p "${codex_resource_dir}" "${zsh_resource_dir}"
+rm -rf "${codex_resource_dir}/codex" "${zsh_tmp_extract_dir}"
+rm -f \
+  "${codex_tmp_tar}" \
+  "${codex_resource_dir}/codex-aarch64-apple-darwin" \
+  "${zsh_tmp_tar}" \
+  "${zsh_resource_dir}/zsh"
+
+download_file "${codex_url}" "${codex_tmp_tar}"
+download_file "${zsh_url}" "${zsh_tmp_tar}"
+
+tar -xzf "${codex_tmp_tar}" -C "${codex_resource_dir}"
+mkdir -p "${zsh_tmp_extract_dir}"
+tar -xzf "${zsh_tmp_tar}" -C "${zsh_tmp_extract_dir}" "${zsh_archive_path}"
+cp "${zsh_tmp_extract_dir}/${zsh_archive_path}" "${zsh_resource_dir}/zsh"
+chmod 755 "${zsh_resource_dir}/zsh"
+
+rm -rf "${zsh_tmp_extract_dir}"
+rm -f "${codex_tmp_tar}" "${zsh_tmp_tar}"
+
+echo "Downloaded ${codex_url}"
+echo "Extracted to ${codex_resource_dir}"
+echo "Downloaded ${zsh_url}"
+echo "Extracted ${zsh_archive_path}"
+echo "Updated ${zsh_resource_dir}/zsh"

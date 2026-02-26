@@ -22,16 +22,12 @@ let zshURL = CodexZshResource.binaryURL
 2. Run:
 
 ```sh
-Scripts/update_codex_resource.sh
+Scripts/update_codex_resource.sh [--include-zsh]
 ```
 
-This downloads both release artifacts from the matching Codex GitHub release:
+This downloads the matching Codex GitHub release artifact:
 - `codex-aarch64-apple-darwin.tar.gz`
-- `codex-shell-tool-mcp-npm-<version>.tgz`
-
-It refreshes:
 - `Sources/CodexBinary/Resources/codex-aarch64-apple-darwin`
-- `Sources/CodexZshBinary/Resources/zsh`
 
 ## Notes
 

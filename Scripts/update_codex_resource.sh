@@ -9,6 +9,37 @@ codex_tmp_tar="${codex_resource_dir}/codex.tar.gz"
 zsh_tmp_tar="${zsh_resource_dir}/codex-shell-tool-mcp.tgz"
 zsh_tmp_extract_dir="${zsh_resource_dir}/codex-shell-tool-mcp"
 zsh_archive_path="package/vendor/aarch64-apple-darwin/zsh/macos-15/zsh"
+include_zsh=0
+
+usage() {
+  cat <<'EOF'
+Usage: Scripts/update_codex_resource.sh [--include-zsh]
+
+  --include-zsh   Download and refresh the bundled zsh.
+
+By default, this script only refreshes the codex binary. The bundled zsh is
+skipped unless --include-zsh is provided because shipped zsh binaries must be
+signed before release use.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --include-zsh)
+    include_zsh=1
+    shift
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown argument: $1" >&2
+    usage >&2
+    exit 1
+    ;;
+  esac
+done
 
 download_file() {
   local url="$1"
@@ -45,27 +76,37 @@ codex_url="https://github.com/openai/codex/releases/download/${version}/codex-aa
 zsh_url="https://github.com/openai/codex/releases/download/${version}/codex-shell-tool-mcp-npm-${package_version}.tgz"
 
 mkdir -p "${codex_resource_dir}" "${zsh_resource_dir}"
-rm -rf "${codex_resource_dir}/codex" "${zsh_tmp_extract_dir}"
+rm -rf "${codex_resource_dir}/codex"
 rm -f \
   "${codex_tmp_tar}" \
-  "${codex_resource_dir}/codex-aarch64-apple-darwin" \
-  "${zsh_tmp_tar}" \
-  "${zsh_resource_dir}/zsh"
+  "${codex_resource_dir}/codex-aarch64-apple-darwin"
 
 download_file "${codex_url}" "${codex_tmp_tar}"
-download_file "${zsh_url}" "${zsh_tmp_tar}"
 
 tar -xzf "${codex_tmp_tar}" -C "${codex_resource_dir}"
-mkdir -p "${zsh_tmp_extract_dir}"
-tar -xzf "${zsh_tmp_tar}" -C "${zsh_tmp_extract_dir}" "${zsh_archive_path}"
-cp "${zsh_tmp_extract_dir}/${zsh_archive_path}" "${zsh_resource_dir}/zsh"
-chmod 755 "${zsh_resource_dir}/zsh"
 
-rm -rf "${zsh_tmp_extract_dir}"
-rm -f "${codex_tmp_tar}" "${zsh_tmp_tar}"
+if [[ "${include_zsh}" == "1" ]]; then
+  rm -rf "${zsh_tmp_extract_dir}"
+  rm -f "${zsh_tmp_tar}" "${zsh_resource_dir}/zsh"
+
+  download_file "${zsh_url}" "${zsh_tmp_tar}"
+  mkdir -p "${zsh_tmp_extract_dir}"
+  tar -xzf "${zsh_tmp_tar}" -C "${zsh_tmp_extract_dir}" "${zsh_archive_path}"
+  cp "${zsh_tmp_extract_dir}/${zsh_archive_path}" "${zsh_resource_dir}/zsh"
+  chmod 755 "${zsh_resource_dir}/zsh"
+  rm -rf "${zsh_tmp_extract_dir}"
+  rm -f "${zsh_tmp_tar}"
+else
+  echo "Warning: skipping bundled zsh refresh; pass --include-zsh to download it. Bundled zsh must still be signed before shipping." >&2
+fi
+
+rm -f "${codex_tmp_tar}"
 
 echo "Downloaded ${codex_url}"
 echo "Extracted to ${codex_resource_dir}"
-echo "Downloaded ${zsh_url}"
-echo "Extracted ${zsh_archive_path}"
-echo "Updated ${zsh_resource_dir}/zsh"
+if [[ "${include_zsh}" == "1" ]]; then
+  echo "Downloaded ${zsh_url}"
+  echo "Extracted ${zsh_archive_path}"
+  echo "Updated ${zsh_resource_dir}/zsh"
+  echo "Warning: bundled zsh is not signed by this script; sign it before shipping." >&2
+fi
